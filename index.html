@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>中秋 · 粒子祝福</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #12122a 0%, #05050f 100%);
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    height: 100vh;
+  }
+
+  canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 月亮样式：月海斑点 + 呼吸发光动画 */
+  .moon {
+    position: fixed;
+    top: 10%;
+    right: 10%;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background-color: #fff7d6;
+    box-shadow:
+      0 0 40px 10px rgba(255, 224, 140, 0.35),
+      0 0 80px 30px rgba(255, 200, 90, 0.18),
+      inset -18px -10px 30px rgba(180, 140, 70, 0.25);
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+    animation: moonGlow 4s ease-in-out infinite;
+  }
+
+  @keyframes moonGlow {
+    0%, 100% {
+      box-shadow:
+        0 0 40px 10px rgba(255, 224, 140, 0.35),
+        0 0 80px 30px rgba(255, 200, 90, 0.18),
+        inset -18px -10px 30px rgba(180, 140, 70, 0.25);
+    }
+    50% {
+      box-shadow:
+        0 0 55px 16px rgba(255, 224, 140, 0.45),
+        0 0 110px 40px rgba(255, 200, 90, 0.25),
+        inset -18px -10px 30px rgba(180, 140, 70, 0.25);
+    }
+  }
+
+  .moon::before {
+    content: "";
+    position: absolute;
+    top: 18%;
+    left: 22%;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(210, 170, 110, 0.35);
+  }
+
+  .moon::after {
+    content: "";
+    position: absolute;
+    top: 55%;
+    left: 45%;
+    width: 28px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(210, 170, 110, 0.28);
+  }
+
+  .moon .spot {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(190, 150, 90, 0.3);
+  }
+
+  .moon .spot1 {
+    top: 38%;
+    left: 15%;
+    width: 10px;
+    height: 10px;
+  }
+
+  .moon .spot2 {
+    top: 70%;
+    left: 28%;
+    width: 14px;
+    height: 12px;
+  }
+
+  .moon .spot3 {
+    top: 25%;
+    left: 58%;
+    width: 8px;
+    height: 8px;
+  }
+
+  .music-btn {
+    position: fixed;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%);
+    z-index: 30;
+    padding: 12px 28px;
+    border: 1px solid rgba(255, 221, 119, 0.5);
+    border-radius: 999px;
+    background: rgba(10, 10, 30, 0.45);
+    color: #fff4c2;
+    font-size: 14px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: all 0.3s ease;
+  }
+
+  .music-btn:hover {
+    background: rgba(255, 221, 119, 0.18);
+    border-color: rgba(255, 221, 119, 0.9);
+    box-shadow: 0 0 18px rgba(255, 221, 119, 0.35);
+  }
+
+  audio {
+    display: none;
+  }
+</style>
+</head>
+
+<body>
+  <div class="moon">
+    <span class="spot spot1"></span>
+    <span class="spot spot2"></span>
+    <span class="spot spot3"></span>
+  </div>
+
+  <canvas id="particleCanvas"></canvas>
+
+  <button class="music-btn" id="musicBtn">点击开启音乐</button>
+
+  <!-- 修改为你自己的音乐文件名 -->
+  <audio id="bgMusic" src="music.mp3" loop>
+
+<script>
+const canvas = document.getElementById("particleCanvas");
+const ctx = canvas.getContext("2d");
+const musicBtn = document.getElementById("musicBtn");
+const bgMusic = document.getElementById("bgMusic");
+
+let musicOn = false;
+let bgParticles = []; // 背景粒子数组
+
+/* ====================== 音乐控制 ====================== */
+musicBtn.addEventListener("click", (e) => {
+  e.stopPropagation(); // 点击音乐按钮不会触发烟花
+  if (bgMusic.paused) {
+    bgMusic.play().then(() => {
+      musicOn = true;
+      musicBtn.innerText = "音乐播放中 · 点击暂停";
+    }).catch(err => {
+      musicBtn.innerText = "音乐加载失败，请检查文件名";
+      console.error(err);
+    });
+  } else {
+    bgMusic.pause();
+    musicOn = false;
+    musicBtn.innerText = "点击开启音乐";
+  }
+});
+
+/* ====================== 画布适配，窗口变化重绘背景粒子 ====================== */
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  initTextParticles();
+  initBgParticles(); // 窗口大小更新，重新生成背景粒子铺满全屏
+}
+
+// 初始化背景粒子，铺满当前画布
+function initBgParticles() {
+  bgParticles = [];
+  const count = 350;
+  for (let i = 0; i < count; i++) {
+    bgParticles.push(new BgParticle());
+  }
+}
+
+window.addEventListener("resize", resize);
+
+/* ====================== 文字方块粒子 ====================== */
+const texts = ["中秋安康", "花好月圆"];
+let textIndex = 0;
+let textChangeTimer = 0;
+const textChangeInterval = 240;
+
+let textParticles = [];
+
+class TextParticle {
+  constructor(targetX, targetY) {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.targetX = targetX;
+    this.targetY = targetY;
+
+    this.size = Math.random() * 3 + 2;
+    this.baseAlpha = 0.75 + Math.random() * 0.25;
+    this.color = Math.random() > 0.4 ? "#ffe28a" : "#fff6c2";
+
+    this.speed = 0.05 + Math.random() * 0.03;
+    this.offsetAngle = Math.random() * Math.PI * 2;
+    this.offsetSpeed = 0.015 + Math.random() * 0.02;
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotationSpeed = (Math.random() - 0.5) * 0.04;
+  }
+
+  update() {
+    this.x += (this.targetX - this.x) * this.speed;
+    this.y += (this.targetY - this.y) * this.speed;
+
+    this.offsetAngle += this.offsetSpeed;
+    const breathX = Math.sin(this.offsetAngle) * 1.8;
+    const breathY = Math.cos(this.offsetAngle * 0.6) * 1.4;
+    this.rotation += this.rotationSpeed;
+    const twinkle = 0.7 + Math.sin(this.offsetAngle * 2.4) * 0.3;
+
+    ctx.save();
+    ctx.translate(this.x + breathX, this.y + breathY);
+    ctx.rotate(this.rotation);
+
+    ctx.fillStyle = "rgba(255, 226, 138, 0.35)";
+    ctx.globalAlpha = this.baseAlpha * twinkle * 0.5;
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = "rgba(255, 210, 110, 0.9)";
+    ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.baseAlpha * twinkle;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "rgba(255, 246, 194, 0.8)";
+    ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+}
+
+/* ====================== 基础背景漂浮粒子（无鼠标排斥） ====================== */
+class BgParticle {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.r = Math.random() * 1.2 + 0.3;
+    this.vx = (Math.random() - 0.5) * 0.22;
+    this.vy = (Math.random() - 0.5) * 0.22;
+    this.a = Math.random() * 0.35 + 0.18;
+    this.color = Math.random() > 0.5 ? "180, 210, 255" : "255, 248, 204";
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+      this.reset();
+    }
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${this.color}, ${this.a})`;
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = `rgba(${this.color}, 0.5)`;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+/* ====================== 点击生成烟花粒子 ====================== */
+class FireworkParticle {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 4 + 2;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.r = Math.random() * 2 + 1;
+    this.alpha = 1;
+    this.decay = 0.008 + Math.random() * 0.006;
+    this.color = Math.random() > 0.5 ? "255,220,120" : "255,255,255";
+  }
+  update() {
+    this.vy += 0.08; // 轻微重力下坠
+    this.x += this.vx;
+    this.y += this.vy;
+    this.alpha -= this.decay;
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${this.color}, ${this.alpha})`;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = `rgba(${this.color},0.6)`;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+let fireworkParticles = [];
+
+// 画布点击触发烟花
+canvas.addEventListener("click", (e) => {
+  const clickX = e.clientX;
+  const clickY = e.clientY;
+  // 一次点击生成80颗烟花粒子
+  for(let i=0; i<80; i++){
+    fireworkParticles.push(new FireworkParticle(clickX, clickY));
+  }
+})
+
+/* ====================== 生成文字粒子 ====================== */
+function getTextPoints(text) {
+  const offscreen = document.createElement("canvas");
+  const octx = offscreen.getContext("2d");
+
+  const fontSize = Math.min(110, window.innerWidth / 5);
+  octx.font = `600 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  octx.textAlign = "center";
+  octx.textBaseline = "middle";
+
+  const width = Math.ceil(octx.measureText(text).width) + 120;
+  const height = fontSize + 60;
+
+  offscreen.width = width;
+  offscreen.height = height;
+
+  octx.font = `600 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  octx.textAlign = "center";
+  octx.textBaseline = "middle";
+  octx.fillStyle = "#ffffff";
+  octx.fillText(text, width / 2, height / 2);
+
+  const imageData = octx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  const points = [];
+  const gap = 4;
+
+  for (let y = 0; y < height; y += gap) {
+    for (let x = 0; x < width; x += gap) {
+      const index = (y * width + x) * 4;
+      if (data[index + 3] > 128) {
+        points.push({
+          x: x - width / 2,
+          y: y - height / 2
+        });
+      }
+    }
+  }
+  return points;
+}
+
+function initTextParticles() {
+  const text = texts[textIndex];
+  const points = getTextPoints(text);
+  textParticles = [];
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    textParticles.push(new TextParticle(centerX + p.x, centerY + p.y));
+  }
+}
+
+/* ====================== 动画循环 ====================== */
+function animate() {
+  ctx.fillStyle = "rgba(5, 5, 15, 0.22)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 绘制基础背景漂浮粒子
+  for (const p of bgParticles) p.update();
+
+  // 绘制烟花粒子
+  for(let i = fireworkParticles.length - 1; i >=0; i--){
+    const fp = fireworkParticles[i];
+    fp.update();
+    fp.draw();
+    if(fp.alpha <= 0){
+      fireworkParticles.splice(i,1);
+    }
+  }
+
+  // 绘制文字方块粒子
+  for (const p of textParticles) p.update();
+
+  // 切换文字
+  textChangeTimer++;
+  if (textChangeTimer >= textChangeInterval) {
+    textChangeTimer = 0;
+    textIndex = (textIndex + 1) % texts.length;
+    changeTextTarget();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function changeTextTarget() {
+  const text = texts[textIndex];
+  const points = getTextPoints(text);
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+
+  for (let i = 0; i < textParticles.length; i++) {
+    const p = points[i % points.length];
+    textParticles[i].targetX = centerX + p.x;
+    textParticles[i].targetY = centerY + p.y;
+  }
+}
+
+resize();
+animate();
+</script>
+</body>
+</html>
