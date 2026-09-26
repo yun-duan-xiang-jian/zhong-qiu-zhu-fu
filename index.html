@@ -167,12 +167,13 @@ const ctx = canvas.getContext("2d");
 const musicBtn = document.getElementById("musicBtn");
 const resetBtn = document.getElementById("resetBtn");
 const bgMusic = document.getElementById("bgMusic");
+const MOBILE_ASSET = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 // ========== 高清嫦娥贴图 ==========
 // 将 changee_transparent.png 与本 HTML 放在同一目录。页面会使用它替代原先的简笔几何嫦娥。
 const changEImage = new Image();
 changEImage.decoding = "async";
-changEImage.src = "changee_transparent.png";
+changEImage.src = MOBILE_ASSET ? "changee_mobile.png" : "changee_transparent.png";
 let changEImageReady = false;
 changEImage.onload = () => { changEImageReady = true; };
 changEImage.onerror = () => { console.warn("changee_transparent.png 加载失败"); };
@@ -180,7 +181,7 @@ changEImage.onerror = () => { console.warn("changee_transparent.png 加载失败
 // ========== 3D月亮贴图 ==========
 const moonTexture = new Image();
 moonTexture.decoding = "async";
-moonTexture.src = "moon_texture_realistic.png";
+moonTexture.src = MOBILE_ASSET ? "moon_mobile.jpg" : "moon_texture_realistic.png";
 let moonTextureReady = false;
 moonTexture.onload = () => { moonTextureReady = true; };
 moonTexture.onerror = () => { console.warn("moon_texture_realistic.png 加载失败，将使用程序生成月球底色"); };
@@ -210,7 +211,7 @@ const isLowPowerMobile = isMobile && (
   (deviceMemory > 0 && deviceMemory <= 4) ||
   (cpuCores > 0 && cpuCores <= 4)
 );
-const QUALITY = !isMobile ? "high" : (isLowPowerMobile ? "low" : "medium");
+const QUALITY = !isMobile ? "high" : "low";
 const USE_HEAVY_FILTERS = QUALITY === "high";
 const USE_MEDIUM_FILTERS = QUALITY !== "low";
 
@@ -717,6 +718,47 @@ function drawMoon() {
   const cx = centerProj.x;
   const cy = centerProj.y;
 
+  // 手机端使用轻量3D月球：保留纹理和球体明暗，但避免每帧大量滤镜/渐变/闪点
+  if (isMobile) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.fillStyle = '#c9c4b8';
+    ctx.fillRect(cx-r, cy-r, r*2, r*2);
+
+    if (moonTextureReady) {
+      const texW = r * 2.02;
+      const texH = r * 2.02;
+      ctx.globalAlpha = 0.98;
+      ctx.drawImage(moonTexture, cx-texW/2, cy-texH/2, texW, texH);
+    }
+
+    const light = ctx.createRadialGradient(cx-r*0.30, cy-r*0.33, 0, cx-r*0.08, cy-r*0.10, r*0.95);
+    light.addColorStop(0, 'rgba(255,252,238,0.28)');
+    light.addColorStop(0.45, 'rgba(255,240,205,0.08)');
+    light.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = light;
+    ctx.fillRect(cx-r, cy-r, r*2, r*2);
+
+    const limb = ctx.createRadialGradient(cx, cy, r*0.62, cx, cy, r);
+    limb.addColorStop(0, 'rgba(0,0,0,0)');
+    limb.addColorStop(1, 'rgba(8,8,12,0.34)');
+    ctx.fillStyle = limb;
+    ctx.fillRect(cx-r, cy-r, r*2, r*2);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,246,220,0.40)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r-0.7, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -979,17 +1021,15 @@ function getTouchDistance(p1, p2) {
 }
 
 function resize() {
-  const dpr = QUALITY === "high"
-    ? Math.min(window.devicePixelRatio || 1, 2)
-    : QUALITY === "medium"
-      ? Math.min(window.devicePixelRatio || 1, 1.25)
-      : 1;
+  const dpr = isMobile
+    ? 0.78
+    : Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.floor(window.innerWidth * dpr);
   canvas.height = Math.floor(window.innerHeight * dpr);
   canvas.style.width = window.innerWidth + "px";
   canvas.style.height = window.innerHeight + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  initTextParticles();
+  if (isMobile) textParticles.length = 0; else initTextParticles();
   initBgParticles();
   initMist();
 }
@@ -1039,7 +1079,7 @@ musicBtn.addEventListener("click", e => {
 
 function fireAtPoint(px, py) {
   const worldPos = screenToWorld(px, py, 70);
-  const count = qValue(60, 34, 22);
+  const count = isMobile ? 18 : 60;
   for (let i = 0; i < count; i++) {
     if (fireworkParticles.length >= MAX_FIREWORK) fireworkParticles.shift();
     fireworkParticles.push(new FireworkParticle(worldPos.x, worldPos.y, worldPos.z));
@@ -1048,7 +1088,7 @@ function fireAtPoint(px, py) {
 
 // ========== 背景星星 ==========
 let bgParticles = [];
-const BG_COUNT = qValue(280, 130, 78);
+const BG_COUNT = isMobile ? 42 : 280;
 function initBgParticles() {
   bgParticles.length = 0;
   for (let i = 0; i < BG_COUNT; i++) bgParticles.push(new BgParticle());
@@ -1155,7 +1195,7 @@ class MistParticle {
 }
 
 function initMist() {
-  mistParticles = Array.from({length: qValue(14, 7, 4)}, () => new MistParticle());
+  mistParticles = isMobile ? [] : Array.from({length: 14}, () => new MistParticle());
 }
 
 class ShootingStar {
@@ -1182,7 +1222,7 @@ class ShootingStar {
     g.addColorStop(0.22, `rgba(205,228,255,${0.62 * this.life})`);
     g.addColorStop(1, 'rgba(180,205,255,0)');
     ctx.strokeStyle = g;
-    ctx.lineWidth = isMobile ? 1.7 : 2.2;
+    ctx.lineWidth = isMobile ? 1.5 : 2.2;
     ctx.beginPath();
     ctx.moveTo(this.x, this.y);
     ctx.lineTo(ex, ey);
@@ -1222,7 +1262,7 @@ function updateAmbientEffects() {
 const moonDust = [];
 function initMoonDust() {
   moonDust.length = 0;
-  const count = isMobile ? 18 : 30;
+  const count = isMobile ? 6 : 30;
   for (let i = 0; i < count; i++) {
     moonDust.push({
       angle: Math.random() * Math.PI * 2,
@@ -1355,6 +1395,20 @@ function getTextPoints(text) {
   return points;
 }
 
+function drawMobileTitle() {
+  const p = project(0, 0, 0);
+  const fontSize = Math.min(54, window.innerWidth / 7.2);
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `600 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  ctx.fillStyle = "rgba(255,236,160,0.92)";
+  ctx.shadowColor = "rgba(255,215,120,0.25)";
+  ctx.shadowBlur = 3;
+  ctx.fillText(texts[textIndex], p.x, p.y);
+  ctx.restore();
+}
+
 function initTextParticles() {
   const pts = getTextPoints(texts[textIndex]);
   textParticles.length = 0;
@@ -1372,7 +1426,7 @@ function changeTextTarget() {
 
 // ========== 烟花 ==========
 let fireworkParticles = [];
-const MAX_FIREWORK = qValue(180, 110, 72);
+const MAX_FIREWORK = isMobile ? 48 : 180;
 class FireworkParticle {
   constructor(x, y, z) {
     this.x = x; this.y = y; this.z = z;
@@ -1410,8 +1464,11 @@ class FireworkParticle {
 }
 
 // ========== 主循环 ==========
+let lastMobileFrame = 0;
 function animate(ts = 0) {
   if (!pageVisible) { requestAnimationFrame(animate); return; }
+  if (isMobile && ts - lastMobileFrame < 33.3) { requestAnimationFrame(animate); return; }
+  if (isMobile) lastMobileFrame = ts;
   sceneTime = ts;
   renderFrame++;
 
@@ -1419,7 +1476,7 @@ function animate(ts = 0) {
   ctx.fillStyle = "rgba(3,4,11,0.34)";
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
-  drawSkyAtmosphere();
+  if (!isMobile) drawSkyAtmosphere();
   updateAmbientEffects();
 
   for (const p of bgParticles) p.update();
@@ -1431,12 +1488,12 @@ function animate(ts = 0) {
     if (fp.alpha <= 0) fireworkParticles.splice(i, 1);
   }
 
-  for (const p of textParticles) p.update();
+  if (isMobile) drawMobileTitle(); else for (const p of textParticles) p.update();
 
   updateChangeE();
   updateMoonArrivalEffects();
   drawMoon();
-  if (QUALITY !== "low" || renderFrame % 2 === 0) drawMoonDust();
+  if (!isMobile) drawMoonDust();
   drawMoonArrivalEffects();
   drawChangeE();
 
@@ -1444,7 +1501,7 @@ function animate(ts = 0) {
   if (textChangeTimer >= textChangeInterval) {
     textChangeTimer = 0;
     textIndex = (textIndex + 1) % texts.length;
-    changeTextTarget();
+    if (!isMobile) changeTextTarget();
   }
 
   // 一段时间没有操作后，让UI变得更安静，突出画面
@@ -1452,7 +1509,7 @@ function animate(ts = 0) {
     document.body.classList.add('ui-idle');
   }
 
-  drawCinematicFinish();
+  if (!isMobile) drawCinematicFinish();
   requestAnimationFrame(animate);
 }
 
