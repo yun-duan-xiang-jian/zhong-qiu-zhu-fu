@@ -31,88 +31,6 @@
     height: 100%;
   }
 
-  .moon {
-    position: fixed;
-    top: 10%;
-    right: 10%;
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
-    background-color: #fff7d6;
-    box-shadow:
-      0 0 40px 10px rgba(255, 224, 140, 0.35),
-      0 0 80px 30px rgba(255, 200, 90, 0.18),
-      inset -18px -10px 30px rgba(180, 140, 70, 0.25);
-    pointer-events: none;
-    z-index: 2;
-    overflow: hidden;
-    animation: moonGlow 4s ease-in-out infinite;
-  }
-
-  @keyframes moonGlow {
-    0%, 100% {
-      box-shadow:
-        0 0 40px 10px rgba(255, 224, 140, 0.35),
-        0 0 80px 30px rgba(255, 200, 90, 0.18),
-        inset -18px -10px 30px rgba(180, 140, 70, 0.25);
-    }
-    50% {
-      box-shadow:
-        0 0 55px 16px rgba(255, 224, 140, 0.45),
-        0 0 110px 40px rgba(255, 200, 90, 0.25),
-        inset -18px -10px 30px rgba(180, 140, 70, 0.25);
-    }
-  }
-
-  .moon::before {
-    content: "";
-    position: absolute;
-    top: 18%;
-    left: 22%;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: rgba(210, 170, 110, 0.35);
-  }
-
-  .moon::after {
-    content: "";
-    position: absolute;
-    top: 55%;
-    left: 45%;
-    width: 28px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(210, 170, 110, 0.28);
-  }
-
-  .moon .spot {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(190, 150, 90, 0.3);
-  }
-
-  .moon .spot1 {
-    top: 38%;
-    left: 15%;
-    width: 10px;
-    height: 10px;
-  }
-
-  .moon .spot2 {
-    top: 70%;
-    left: 28%;
-    width: 14px;
-    height: 12px;
-  }
-
-  .moon .spot3 {
-    top: 25%;
-    left: 58%;
-    width: 8px;
-    height: 8px;
-  }
-
   .top-tip {
     position: fixed;
     top: 12px;
@@ -194,10 +112,6 @@
     .top-tip {
       font-size: 11px;
     }
-    .moon {
-      width: 90px;
-      height: 90px;
-    }
     .music-btn {
       min-width: 150px;
       max-width: 46vw;
@@ -219,13 +133,7 @@
 </style>
 </head>
 <body>
-  <div class="moon">
-    <span class="spot spot1"></span>
-    <span class="spot spot2"></span>
-    <span class="spot spot3"></span>
-  </div>
-
-  <div class="top-tip">🖱️拖拽旋转｜滚轮缩放｜点击放烟花</div>
+  <div class="top-tip">🖱️拖拽旋转｜滚轮缩放｜点击月亮召唤嫦娥</div>
 
   <canvas id="particleCanvas"></canvas>
 
@@ -254,119 +162,118 @@ let touchOne = null;
 let touchTwo = null;
 let prevTouchDist = 0;
 
-// 判断是否手机
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-function resize() {
-  const dpr = isMobile ? Math.min(window.devicePixelRatio,1.5) : (window.devicePixelRatio || 1);
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
-  canvas.style.width = window.innerWidth + "px";
-  canvas.style.height = window.innerHeight + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+// ========== 月球整体抬高 ==========
+const moonWorld = { cx: 180, cy: -200, cz: 160, radius: 70 };
+const moonParticles = [];
 
-  initTextParticles();
-  initBgParticles();
+function buildMoon() {
+  moonParticles.length = 0;
+  const maria = [
+    { lon: -20, lat: -15, r: 18, color: "#6e6a5e" },
+    { lon: 30, lat: 10, r: 14, color: "#757165" },
+    { lon: -45, lat: 25, r: 10, color: "#6c685c" },
+    { lon: 10, lat: -30, r: 12, color: "#7a766a" }
+  ];
+  const craters = [
+    { lon: 0, lat: 0, r: 9, color: "#4b4740" },
+    { lon: 40, lat: -20, r: 6, color: "#555149" },
+    { lon: -35, lat: 35, r: 5, color: "#5c5850" },
+    { lon: 25, lat: 40, r: 4, color: "#635f57" },
+    { lon: -10, lat: 45, r: 4, color: "#66625a" },
+    { lon: 55, lat: 0, r: 3, color: "#6a665e" },
+    { lon: -55, lat: -10, r: 3, color: "#69655d" },
+    { lon: 15, lat: 20, r: 2.5, color: "#706c64" }
+  ];
+  const surfaceCount = isMobile ? 900 : 1400;
+  for (let i = 0; i < surfaceCount; i++) {
+    const lon = (Math.random() - 0.5) * 180;
+    const lat = (Math.random() - 0.5) * 180;
+    moonParticles.push({ type: "surface", lon, lat, r: 0.35 + Math.random() * 0.45, baseColor: Math.random() > 0.5 ? "#cfc9b8" : "#b8b2a2" });
+  }
+  for (const m of maria) {
+    const count = isMobile ? 180 : 280;
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rr = Math.sqrt(Math.random()) * m.r;
+      moonParticles.push({ type: "maria", lon: m.lon + Math.cos(ang) * rr, lat: m.lat + Math.sin(ang) * rr, r: 0.4 + Math.random() * 0.4, baseColor: m.color });
+    }
+  }
+  for (const c of craters) {
+    const count = isMobile ? 120 : 200;
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rr = Math.sqrt(Math.random()) * c.r;
+      moonParticles.push({ type: "crater", lon: c.lon + Math.cos(ang) * rr, lat: c.lat + Math.sin(ang) * rr, r: 0.35 + Math.random() * 0.35, baseColor: c.color });
+    }
+  }
 }
 
-window.addEventListener("resize", resize);
-window.addEventListener("orientationchange", () => {
-  setTimeout(resize, 120);
-});
-
-resetBtn.addEventListener("click", () => {
-  rotX = 0;
-  rotY = 0;
-  scale = 1;
-});
-
-canvas.addEventListener("mousedown", e => {
-  isDrag = true;
-  lastX = e.clientX;
-  lastY = e.clientY;
-});
-window.addEventListener("mousemove", e => {
-  if (!isDrag) return;
-  const dx = e.clientX - lastX;
-  const dy = e.clientY - lastY;
-  rotY -= dx * 0.005;
-  rotX += dy * 0.005;
-  lastX = e.clientX;
-  lastY = e.clientY;
-});
-window.addEventListener("mouseup", () => { isDrag = false; });
-
-canvas.addEventListener("wheel", e => {
-  e.preventDefault();
-  scale += e.deltaY * -0.0008;
-  scale = Math.max(0.4, Math.min(2.2, scale));
-}, { passive: false });
-
-canvas.addEventListener("touchstart", e => {
-  e.preventDefault();
-  const touches = e.touches;
-  if (touches.length === 1) {
-    isDrag = true;
-    touchOne = touches[0];
-    lastX = touchOne.clientX;
-    lastY = touchOne.clientY;
-  } else if (touches.length === 2) {
-    isDrag = false;
-    touchOne = touches[0];
-    touchTwo = touches[1];
-    prevTouchDist = getTouchDistance(touchOne, touchTwo);
-  }
-}, { passive: false });
-
-canvas.addEventListener("touchmove", e => {
-  e.preventDefault();
-  const touches = e.touches;
-  if (touches.length === 1 && isDrag) {
-    const t = touches[0];
-    const dx = t.clientX - lastX;
-    const dy = t.clientY - lastY;
-    rotY -= dx * 0.005;
-    rotX += dy * 0.005;
-    lastX = t.clientX;
-    lastY = t.clientY;
-  } else if (touches.length === 2) {
-    const t1 = touches[0];
-    const t2 = touches[1];
-    const dist = getTouchDistance(t1, t2);
-    const delta = dist - prevTouchDist;
-    scale += delta * 0.0012;
-    scale = Math.max(0.4, Math.min(2.2, scale));
-    prevTouchDist = dist;
-  }
-}, { passive: false });
-
-canvas.addEventListener("touchend", e => {
-  if (e.touches.length === 0) {
-    isDrag = false;
-    touchOne = null;
-    touchTwo = null;
-  }
-}, { passive: false });
-
-function getTouchDistance(t1, t2) {
-  const dx = t2.clientX - t1.clientX;
-  const dy = t2.clientY - t1.clientY;
-  return Math.sqrt(dx * dx + dy * dy);
+function getMoonSurfaceWorld(lonDeg, latDeg) {
+  const phi = lonDeg * Math.PI / 180;
+  const theta = latDeg * Math.PI / 180;
+  return {
+    x: moonWorld.cx + moonWorld.radius * Math.cos(theta) * Math.sin(phi),
+    y: moonWorld.cy + moonWorld.radius * Math.sin(theta),
+    z: moonWorld.cz + moonWorld.radius * Math.cos(theta) * Math.cos(phi)
+  };
 }
 
-function project(x, y, z) {
+// ========== 点击月球 -> 月球表面3D落点 ==========
+function getMoonSurfaceFromClick(screenX, screenY) {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
-  let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
-  let x1 = x * Math.cos(rotY) + z1 * Math.sin(rotY);
-  let z2 = -x * Math.sin(rotY) + z1 * Math.cos(rotY);
+
+  const ndcX = (screenX - w / 2) / scale;
+  const ndcY = (screenY - h / 2) / scale;
+  const z2 = 100;
   const perspective = fov / (fov + z2);
-  const sx = w / 2 + x1 * perspective * scale;
-  const sy = h / 2 + y1 * perspective * scale;
-  const s = perspective * scale;
-  return { x: sx, y: sy, scale: s, z: z2 };
+
+  let x1 = ndcX / perspective;
+  let y1 = ndcY / perspective;
+  let z1 = z2;
+
+  let rx = x1 * Math.cos(-rotY) - z1 * Math.sin(-rotY);
+  let rz_ = x1 * Math.sin(-rotY) + z1 * Math.cos(-rotY);
+  let ry = y1 * Math.cos(-rotX) - rz_ * Math.sin(-rotX);
+  let rz = y1 * Math.sin(-rotX) + rz_ * Math.cos(-rotX);
+
+  const ox = 0, oy = 0, oz = 0;
+  const lx = rx - ox;
+  const ly = ry - oy;
+  const lz = rz - oz;
+
+  const fx = moonWorld.cx - ox;
+  const fy = moonWorld.cy - oy;
+  const fz = moonWorld.cz - oz;
+
+  const a = lx * lx + ly * ly + lz * lz;
+  const b = -2 * (lx * fx + ly * fy + lz * fz);
+  const c = fx * fx + fy * fy + fz * fz - moonWorld.radius * moonWorld.radius;
+  const disc = b * b - 4 * a * c;
+
+  let hitX = moonWorld.cx;
+  let hitY = moonWorld.cy;
+  let hitZ = moonWorld.cz;
+
+  if (disc >= 0) {
+    const t = Math.min((-b - Math.sqrt(disc)) / (2 * a), (-b + Math.sqrt(disc)) / (2 * a));
+    hitX = ox + lx * t;
+    hitY = oy + ly * t;
+    hitZ = oz + lz * t;
+  }
+
+  return { x: hitX, y: hitY, z: hitZ };
 }
+
+// ========== 3D嫦娥模型 ==========
+const changEModel = {
+  head: { x: 0, y: -7, z: 0 },
+  body: { x: 0, y: 0, z: 0 },
+  ribbonEnd: { x: -9, y: 4, z: 2 }
+};
+const chengs = [];
 
 function screenToWorld(screenX, screenY, worldZ = 70) {
   const w = window.innerWidth;
@@ -383,6 +290,310 @@ function screenToWorld(screenX, screenY, worldZ = 70) {
   let y = y1 * Math.cos(-rotX) - z_ * Math.sin(-rotX);
   let zOut = y1 * Math.sin(-rotX) + z_ * Math.cos(-rotX);
   return { x: x, y: y, z: zOut };
+}
+
+function getViewportBottomLeftWorld(zDepth = 130) {
+  return screenToWorld(0, window.innerHeight, zDepth);
+}
+
+function launchChangeE(clickX, clickY) {
+  const startWorld = getViewportBottomLeftWorld(130);
+  const targetWorld = getMoonSurfaceFromClick(clickX, clickY);
+
+  chengs.push({
+    sx: startWorld.x,
+    sy: startWorld.y,
+    sz: startWorld.z,
+    tx: targetWorld.x,
+    ty: targetWorld.y,
+    tz: targetWorld.z,
+    wx: startWorld.x,
+    wy: startWorld.y,
+    wz: startWorld.z,
+    progress: 0,
+    duration: 140,
+    hold: 0,
+    ribbon: [],
+    trail: []
+  });
+}
+
+function updateChangeE() {
+  for (let i = chengs.length - 1; i >= 0; i--) {
+    const c = chengs[i];
+    c.progress += 1;
+    const k = Math.min(1, c.progress / c.duration);
+    c.wx = c.sx + (c.tx - c.sx) * k;
+    c.wy = c.sy + (c.ty - c.sy) * k;
+    c.wz = c.sz + (c.tz - c.sz) * k;
+
+    c.ribbon.push({ x: c.wx + changEModel.ribbonEnd.x, y: c.wy + changEModel.ribbonEnd.y, z: c.wz + changEModel.ribbonEnd.z, life: 1 });
+    if (c.ribbon.length > 42) c.ribbon.shift();
+
+    if (Math.random() < 0.6) {
+      c.trail.push({
+        x: c.wx + (Math.random() - 0.5) * 8,
+        y: c.wy + (Math.random() - 0.5) * 8,
+        z: c.wz + (Math.random() - 0.5) * 10,
+        life: 1
+      });
+    }
+    if (c.trail.length > 130) c.trail.shift();
+
+    for (const r of c.ribbon) r.life -= 0.024;
+    for (const t of c.trail) t.life -= 0.021;
+    c.ribbon = c.ribbon.filter(r => r.life > 0);
+    c.trail = c.trail.filter(t => t.life > 0);
+
+    if (k >= 1) {
+      c.hold++;
+      if (c.hold > 75) {
+        chengs.splice(i, 1);
+      }
+    }
+  }
+}
+
+function project(x, y, z) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
+  let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
+  let x1 = x * Math.cos(rotY) + z1 * Math.sin(rotY);
+  let z2 = -x * Math.sin(rotY) + z1 * Math.cos(rotY);
+  const perspective = fov / (fov + z2);
+  const sx = w / 2 + x1 * perspective * scale;
+  const sy = h / 2 + y1 * perspective * scale;
+  const s = perspective * scale;
+  return { x: sx, y: sy, scale: s, z: z2 };
+}
+
+function drawChangeE() {
+  for (const c of chengs) {
+    for (const t of c.trail) {
+      const tp = project(t.x, t.y, t.z);
+      if (tp.z > -450) {
+        ctx.beginPath();
+        ctx.arc(tp.x, tp.y, 1.2 * tp.scale, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,220,120,${t.life * 0.7})`;
+        ctx.fill();
+      }
+    }
+    for (let i = 1; i < c.ribbon.length; i++) {
+      const a = c.ribbon[i - 1];
+      const b = c.ribbon[i];
+      const ap = project(a.x, a.y, a.z);
+      const bp = project(b.x, b.y, b.z);
+      if (ap.z > -450 && bp.z > -450) {
+        ctx.strokeStyle = `rgba(255,230,170,${a.life * 0.8})`;
+        ctx.lineWidth = 2 * ap.scale;
+        ctx.beginPath();
+        ctx.moveTo(ap.x, ap.y);
+        ctx.lineTo(bp.x, bp.y);
+        ctx.stroke();
+      }
+    }
+    const headP = project(c.wx + changEModel.head.x, c.wy + changEModel.head.y, c.wz + changEModel.head.z);
+    const bodyP = project(c.wx + changEModel.body.x, c.wy + changEModel.body.y, c.wz + changEModel.body.z);
+    if (headP.z > -450 && bodyP.z > -450) {
+      const ss = headP.scale;
+      const bodyH = 14 * ss;
+      const headR = 3.5 * ss;
+
+      const glow = ctx.createRadialGradient(headP.x, headP.y, 0, headP.x, headP.y, 18 * ss);
+      glow.addColorStop(0, "rgba(255, 240, 200, 0.9)");
+      glow.addColorStop(0.4, "rgba(255, 220, 140, 0.45)");
+      glow.addColorStop(1, "rgba(255, 200, 100, 0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(headP.x, headP.y, 18 * ss, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fff4c2";
+      ctx.fillRect(bodyP.x - 2.8 * ss, bodyP.y - bodyH * 0.35, 5.6 * ss, bodyH * 0.7);
+
+      ctx.beginPath();
+      ctx.arc(headP.x, headP.y - bodyH * 0.65, headR, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffe28a";
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255, 235, 180, 0.8)";
+      ctx.lineWidth = 2 * ss;
+      ctx.beginPath();
+      ctx.moveTo(bodyP.x - 4 * ss, bodyP.y + bodyH * 0.2);
+      ctx.quadraticCurveTo(bodyP.x - 10 * ss, bodyP.y + bodyH * 0.55, bodyP.x - 16 * ss, bodyP.y + bodyH * 0.8);
+      ctx.stroke();
+    }
+  }
+}
+
+// ========== 绘制3D月球 ==========
+function drawMoon() {
+  const lightDir = { x: 0.5, y: -0.4, z: 0.77 };
+  const lightLen = Math.sqrt(lightDir.x ** 2 + lightDir.y ** 2 + lightDir.z ** 2);
+  lightDir.x /= lightLen;
+  lightDir.y /= lightLen;
+  lightDir.z /= lightLen;
+
+  const visible = [];
+  for (const p of moonParticles) {
+    const phi = p.lon * Math.PI / 180;
+    const theta = p.lat * Math.PI / 180;
+    const wx = moonWorld.cx + moonWorld.radius * Math.cos(theta) * Math.sin(phi);
+    const wy = moonWorld.cy + moonWorld.radius * Math.sin(theta);
+    const wz = moonWorld.cz + moonWorld.radius * Math.cos(theta) * Math.cos(phi);
+
+    const nx = (wx - moonWorld.cx) / moonWorld.radius;
+    const ny = (wy - moonWorld.cy) / moonWorld.radius;
+    const nz = (wz - moonWorld.cz) / moonWorld.radius;
+    let diffuse = nx * lightDir.x + ny * lightDir.y + nz * lightDir.z;
+    diffuse = Math.max(0, diffuse);
+
+    const proj = project(wx, wy, wz);
+    if (proj.z < -2) continue;
+    visible.push({ x: proj.x, y: proj.y, z: proj.z, size: p.r * proj.scale, color: p.baseColor, light: diffuse });
+  }
+  visible.sort((a, b) => a.z - b.z);
+
+  const centerProj = project(moonWorld.cx, moonWorld.cy, moonWorld.cz);
+  const glowR = moonWorld.radius * centerProj.scale * 1.15;
+  const glow = ctx.createRadialGradient(centerProj.x, centerProj.y, glowR * 0.6, centerProj.x, centerProj.y, glowR);
+  glow.addColorStop(0, "rgba(255, 241, 200, 0)");
+  glow.addColorStop(0.7, "rgba(255, 225, 160, 0.08)");
+  glow.addColorStop(1, "rgba(255, 210, 130, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(centerProj.x, centerProj.y, glowR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(centerProj.x, centerProj.y, moonWorld.radius * centerProj.scale, 0, Math.PI * 2);
+  ctx.clip();
+
+  for (const v of visible) {
+    const brightness = 0.35 + v.light * 0.65;
+    ctx.fillStyle = shadeColor(v.color, brightness);
+    ctx.globalAlpha = 0.92;
+    ctx.fillRect(v.x - v.size / 2, v.y - v.size / 2, v.size, v.size);
+  }
+  ctx.restore();
+}
+
+function shadeColor(hex, brightness) {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const nr = Math.min(255, Math.floor(r * brightness));
+  const ng = Math.min(255, Math.floor(g * brightness));
+  const nb = Math.min(255, Math.floor(b * brightness));
+  return `rgb(${nr}, ${ng}, ${nb})`;
+}
+
+function hitMoonScreen(px, py) {
+  const cp = project(moonWorld.cx, moonWorld.cy, moonWorld.cz);
+  const rScreen = moonWorld.radius * cp.scale;
+  const dx = px - cp.x;
+  const dy = py - cp.y;
+  return Math.sqrt(dx * dx + dy * dy) < rScreen + 24;
+}
+
+canvas.addEventListener("click", e => {
+  if (hitMoonScreen(e.clientX, e.clientY)) {
+    launchChangeE(e.clientX, e.clientY);
+  } else {
+    fireAtPoint(e.clientX, e.clientY);
+  }
+});
+
+canvas.addEventListener("touchend", e => {
+  if (isDrag) return;
+  const t = e.changedTouches[0];
+  if (hitMoonScreen(t.clientX, t.clientY)) {
+    launchChangeE(t.clientX, t.clientY);
+  } else {
+    fireAtPoint(t.clientX, t.clientY);
+  }
+}, { passive: true });
+
+function resize() {
+  const dpr = isMobile ? Math.min(window.devicePixelRatio, 1.5) : (window.devicePixelRatio || 1);
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  initTextParticles();
+  initBgParticles();
+}
+
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 120));
+
+resetBtn.addEventListener("click", () => { rotX = 0; rotY = 0; scale = 1; });
+
+canvas.addEventListener("mousedown", e => { isDrag = true; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener("mousemove", e => {
+  if (!isDrag) return;
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  rotY -= dx * 0.005;
+  rotX += dy * 0.005;
+  lastX = e.clientX; lastY = e.clientY;
+});
+window.addEventListener("mouseup", () => { isDrag = false; });
+
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  scale += e.deltaY * -0.0008;
+  scale = Math.max(0.4, Math.min(2.2, scale));
+}, { passive: false });
+
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  const touches = e.touches;
+  if (touches.length === 1) {
+    isDrag = true;
+    touchOne = touches[0];
+    lastX = touchOne.clientX; lastY = touchOne.clientY;
+  } else if (touches.length === 2) {
+    isDrag = false;
+    touchOne = touches[0]; touchTwo = touches[1];
+    prevTouchDist = getTouchDistance(touchOne, touchTwo);
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  const touches = e.touches;
+  if (touches.length === 1 && isDrag) {
+    const t = touches[0];
+    const dx = t.clientX - lastX;
+    const dy = t.clientY - lastY;
+    rotY -= dx * 0.005;
+    rotX += dy * 0.005;
+    lastX = t.clientX; lastY = t.clientY;
+  } else if (touches.length === 2) {
+    const t1 = touches[0]; const t2 = touches[1];
+    const dist = getTouchDistance(t1, t2);
+    const delta = dist - prevTouchDist;
+    scale += delta * 0.0012;
+    scale = Math.max(0.4, Math.min(2.2, scale));
+    prevTouchDist = dist;
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchend", e => {
+  if (e.touches.length === 0) {
+    isDrag = false; touchOne = null; touchTwo = null;
+  }
+}, { passive: false });
+
+function getTouchDistance(t1, t2) {
+  const dx = t2.clientX - t1.clientX;
+  const dy = t2.clientY - t1.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 musicBtn.addEventListener("click", e => {
@@ -403,10 +614,7 @@ musicBtn.addEventListener("click", e => {
   }
 });
 
-// 烟花最大数量限制，防止狂点卡死
-const MAX_FIREWORK = 120;
 function fireAtPoint(px, py) {
-  if(fireworkParticles.length > MAX_FIREWORK) return;
   const worldPos = screenToWorld(px, py, 70);
   const count = isMobile ? 40 : 60;
   for (let i = 0; i < count; i++) {
@@ -414,26 +622,13 @@ function fireAtPoint(px, py) {
   }
 }
 
-canvas.addEventListener("click", e => {
-  e.stopPropagation();
-  fireAtPoint(e.clientX, e.clientY);
-});
-canvas.addEventListener("touchend", e => {
-  if (isDrag) return;
-  const t = e.changedTouches[0];
-  fireAtPoint(t.clientX, t.clientY);
-}, { passive: true });
-
+// ========== 背景星星 ==========
 let bgParticles = [];
-// 手机减少背景星星数量
 const BG_COUNT = isMobile ? 180 : 280;
 function initBgParticles() {
-  bgParticles = [];
-  for (let i = 0; i < BG_COUNT; i++) {
-    bgParticles.push(new BgParticle());
-  }
+  bgParticles.length = 0;
+  for (let i = 0; i < BG_COUNT; i++) bgParticles.push(new BgParticle());
 }
-
 class BgParticle {
   constructor() { this.reset(); }
   reset() {
@@ -448,9 +643,7 @@ class BgParticle {
     this.color = Math.random() > 0.5 ? "180, 210, 255" : "255, 248, 204";
   }
   update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.z += this.vz;
+    this.x += this.vx; this.y += this.vy; this.z += this.vz;
     if (Math.abs(this.x) > 450 || Math.abs(this.y) > 350 || Math.abs(this.z) > 280) this.reset();
     const p = project(this.x, this.y, this.z);
     if (p.z > -450) {
@@ -462,6 +655,7 @@ class BgParticle {
   }
 }
 
+// ========== 中间文字粒子 ==========
 const texts = ["中秋安康", "花好月圆"];
 let textIndex = 0;
 let textChangeTimer = 0;
@@ -469,23 +663,18 @@ const textChangeInterval = 240;
 let textParticles = [];
 
 class TextParticle {
-  constructor(targetX, targetY, targetZ) {
+  constructor(tx, ty, tz) {
     this.x = (Math.random() - 0.5) * 800;
     this.y = (Math.random() - 0.5) * 600;
     this.z = (Math.random() - 0.5) * 400;
-    this.targetX = targetX;
-    this.targetY = targetY;
-    this.targetZ = targetZ;
+    this.targetX = tx; this.targetY = ty; this.targetZ = tz;
     this.size = Math.random() * 1.6 + 0.8;
     this.baseAlpha = 0.85;
     this.color = Math.random() > 0.4 ? "#ffe28a" : "#fff6c2";
     this.speed = 0.06 + Math.random() * 0.03;
     this.offsetAngle = Math.random() * Math.PI * 2;
     this.offsetSpeed = 0.008 + Math.random() * 0.01;
-    this.rotation = 0;
-    this.rotationSpeed = 0;
   }
-
   update() {
     this.x += (this.targetX - this.x) * this.speed;
     this.y += (this.targetY - this.y) * this.speed;
@@ -494,51 +683,42 @@ class TextParticle {
     const breathX = Math.sin(this.offsetAngle) * 0.8;
     const breathY = Math.cos(this.offsetAngle * 0.6) * 0.6;
     const twinkle = 0.85 + Math.sin(this.offsetAngle * 1.8) * 0.15;
-
     const p = project(this.x + breathX, this.y + breathY, this.z);
     if (p.z > -450) {
       ctx.save();
       ctx.translate(p.x, p.y);
-      const drawSize = this.size * p.scale;
+      const ds = this.size * p.scale;
       ctx.fillStyle = this.color;
       ctx.globalAlpha = this.baseAlpha * twinkle * Math.min(1, p.scale);
-      ctx.fillRect(-drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      ctx.fillRect(-ds / 2, -ds / 2, ds, ds);
       ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
 }
 
-// gap=3 兼顾清晰度与性能，不要调到2
 function getTextPoints(text) {
-  const offscreen = document.createElement("canvas");
-  const octx = offscreen.getContext("2d");
+  const off = document.createElement("canvas");
+  const octx = off.getContext("2d");
   const fontSize = Math.min(110, window.innerWidth / 5);
   octx.font = `600 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-  octx.textAlign = "center";
-  octx.textBaseline = "middle";
-  const width = Math.ceil(octx.measureText(text).width) + 120;
-  const height = fontSize + 60;
-  offscreen.width = width;
-  offscreen.height = height;
+  octx.textAlign = "center"; octx.textBaseline = "middle";
+  const w = Math.ceil(octx.measureText(text).width) + 120;
+  const h = fontSize + 60;
+  off.width = w; off.height = h;
   octx.font = `600 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-  octx.textAlign = "center";
-  octx.textBaseline = "middle";
+  octx.textAlign = "center"; octx.textBaseline = "middle";
   octx.fillStyle = "#ffffff";
-  octx.fillText(text, width / 2, height / 2);
-  const imageData = octx.getImageData(0, 0, width, height);
-  const data = imageData.data;
+  octx.fillText(text, w / 2, h / 2);
+  const imgData = octx.getImageData(0, 0, w, h);
+  const data = imgData.data;
   const points = [];
   const gap = 3;
-  for (let y = 0; y < height; y += gap) {
-    for (let x = 0; x < width; x += gap) {
-      const index = (y * width + x) * 4;
-      if (data[index + 3] > 128) {
-        points.push({
-          x: (x - width / 2) * 0.75,
-          y: (y - height / 2) * 0.75,
-          z: 0
-        });
+  for (let y = 0; y < h; y += gap) {
+    for (let x = 0; x < w; x += gap) {
+      const idx = (y * w + x) * 4;
+      if (data[idx + 3] > 128) {
+        points.push({ x: (x - w / 2) * 0.75, y: (y - h / 2) * 0.75, z: 0 });
       }
     }
   }
@@ -546,37 +726,31 @@ function getTextPoints(text) {
 }
 
 function initTextParticles() {
-  const text = texts[textIndex];
-  const points = getTextPoints(text);
-  textParticles = [];
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
-    textParticles.push(new TextParticle(p.x, p.y, p.z));
-  }
+  const pts = getTextPoints(texts[textIndex]);
+  textParticles.length = 0;
+  for (const p of pts) textParticles.push(new TextParticle(p.x, p.y, p.z));
 }
-
 function changeTextTarget() {
-  const text = texts[textIndex];
-  const points = getTextPoints(text);
+  const pts = getTextPoints(texts[textIndex]);
   for (let i = 0; i < textParticles.length; i++) {
-    const p = points[i % points.length];
+    const p = pts[i % pts.length];
     textParticles[i].targetX = p.x;
     textParticles[i].targetY = p.y;
     textParticles[i].targetZ = p.z;
   }
 }
 
+// ========== 烟花 ==========
 let fireworkParticles = [];
+const MAX_FIREWORK = 120;
 class FireworkParticle {
   constructor(x, y, z) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random() * 4 + 2;
-    this.vx = Math.cos(angle) * speed;
-    this.vy = Math.sin(angle) * speed;
-    this.vz = (Math.random() - 0.5) * speed * 0.6;
+    this.x = x; this.y = y; this.z = z;
+    const ang = Math.random() * Math.PI * 2;
+    const spd = Math.random() * 4 + 2;
+    this.vx = Math.cos(ang) * spd;
+    this.vy = Math.sin(ang) * spd;
+    this.vz = (Math.random() - 0.5) * spd * 0.6;
     this.r = Math.random() * 2 + 1;
     this.alpha = 1;
     this.decay = 0.008 + Math.random() * 0.006;
@@ -594,15 +768,15 @@ class FireworkParticle {
     if (p.z > -450 && this.alpha > 0) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, this.r * p.scale, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${this.color}, ${this.alpha * Math.min(1, p.scale)})`;
+      ctx.fillStyle = `rgba(${this.color},${this.alpha * Math.min(1, p.scale)})`;
       ctx.fill();
     }
   }
 }
 
+// ========== 主循环 ==========
 function animate() {
-  // 降低拖影，同时减少绘制压力
-  ctx.fillStyle = "rgba(5, 5, 15, 0.28)";
+  ctx.fillStyle = "rgba(5,5,15,0.28)";
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
   for (const p of bgParticles) p.update();
@@ -611,12 +785,14 @@ function animate() {
     const fp = fireworkParticles[i];
     fp.update();
     fp.draw();
-    if (fp.alpha <= 0) {
-      fireworkParticles.splice(i, 1);
-    }
+    if (fp.alpha <= 0) fireworkParticles.splice(i, 1);
   }
 
   for (const p of textParticles) p.update();
+
+  updateChangeE();
+  drawMoon();
+  drawChangeE();
 
   textChangeTimer++;
   if (textChangeTimer >= textChangeInterval) {
@@ -624,10 +800,10 @@ function animate() {
     textIndex = (textIndex + 1) % texts.length;
     changeTextTarget();
   }
-
   requestAnimationFrame(animate);
 }
 
+buildMoon();
 resize();
 animate();
 </script>
