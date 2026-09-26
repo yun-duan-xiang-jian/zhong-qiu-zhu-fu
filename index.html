@@ -2,21 +2,26 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>中秋 · 伪3D粒子祝福</title>
 <style>
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
-  body {
+
+  html, body {
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     background: radial-gradient(ellipse at center, #12122a 0%, #05050f 100%);
     font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-    height: 100vh;
     user-select: none;
+    touch-action: none;
   }
+
   canvas {
     display: block;
     position: fixed;
@@ -25,6 +30,7 @@
     width: 100%;
     height: 100%;
   }
+
   .moon {
     position: fixed;
     top: 10%;
@@ -42,6 +48,7 @@
     overflow: hidden;
     animation: moonGlow 4s ease-in-out infinite;
   }
+
   @keyframes moonGlow {
     0%, 100% {
       box-shadow:
@@ -56,6 +63,7 @@
         inset -18px -10px 30px rgba(180, 140, 70, 0.25);
     }
   }
+
   .moon::before {
     content: "";
     position: absolute;
@@ -66,6 +74,7 @@
     border-radius: 50%;
     background: rgba(210, 170, 110, 0.35);
   }
+
   .moon::after {
     content: "";
     position: absolute;
@@ -76,29 +85,34 @@
     border-radius: 50%;
     background: rgba(210, 170, 110, 0.28);
   }
+
   .moon .spot {
     position: absolute;
     border-radius: 50%;
     background: rgba(190, 150, 90, 0.3);
   }
+
   .moon .spot1 {
     top: 38%;
     left: 15%;
     width: 10px;
     height: 10px;
   }
+
   .moon .spot2 {
     top: 70%;
     left: 28%;
     width: 14px;
     height: 12px;
   }
+
   .moon .spot3 {
     top: 25%;
     left: 58%;
     width: 8px;
     height: 8px;
   }
+
   .top-tip {
     position: fixed;
     top: 12px;
@@ -112,51 +126,98 @@
     pointer-events: none;
     white-space: nowrap;
   }
+
   .music-btn {
     position: fixed;
     left: 50%;
-    bottom: 40px;
+    bottom: 44px;
     transform: translateX(-50%);
     z-index: 3;
-    padding: 12px 28px;
+    padding: 0 28px;
+    min-width: 180px;
+    max-width: 42vw;
+    height: 46px;
+    line-height: 44px;
     border: 1px solid rgba(255, 221, 119, 0.5);
     border-radius: 999px;
     background: rgba(10, 10, 30, 0.45);
     color: #fff4c2;
     font-size: 14px;
     letter-spacing: 4px;
+    text-align: center;
+    white-space: nowrap;
     cursor: pointer;
     backdrop-filter: blur(6px);
     transition: all 0.3s ease;
   }
+
   .music-btn:hover {
     background: rgba(255, 221, 119, 0.18);
     border-color: rgba(255, 221, 119, 0.9);
     box-shadow: 0 0 18px rgba(255, 221, 119, 0.35);
   }
+
   .reset-btn {
     position: fixed;
-    right: 24px;
-    bottom: 40px;
+    right: 16px;
+    bottom: 44px;
     z-index: 3;
-    padding: 12px 20px;
+    padding: 0 20px;
+    min-width: 110px;
+    max-width: 30vw;
+    height: 46px;
+    line-height: 44px;
     border: 1px solid rgba(255, 221, 119, 0.5);
     border-radius: 999px;
     background: rgba(10, 10, 30, 0.45);
     color: #fff4c2;
     font-size: 14px;
     letter-spacing: 2px;
+    text-align: center;
+    white-space: nowrap;
     cursor: pointer;
     backdrop-filter: blur(6px);
     transition: all 0.3s ease;
   }
+
   .reset-btn:hover {
     background: rgba(255, 221, 119, 0.18);
     border-color: rgba(255, 221, 119, 0.9);
     box-shadow: 0 0 18px rgba(255, 221, 119, 0.35);
   }
+
   audio {
     display: none;
+  }
+
+  @media (max-width: 480px) {
+    .top-tip {
+      font-size: 11px;
+    }
+
+    .moon {
+      width: 90px;
+      height: 90px;
+    }
+
+    .music-btn {
+      min-width: 150px;
+      max-width: 46vw;
+      height: 42px;
+      line-height: 40px;
+      font-size: 12px;
+      letter-spacing: 3px;
+      padding: 0 18px;
+    }
+
+    .reset-btn {
+      min-width: 90px;
+      max-width: 28vw;
+      height: 42px;
+      line-height: 40px;
+      font-size: 12px;
+      padding: 0 14px;
+    }
   }
 </style>
 </head>
@@ -182,15 +243,38 @@ const ctx = canvas.getContext("2d");
 const musicBtn = document.getElementById("musicBtn");
 const resetBtn = document.getElementById("resetBtn");
 const bgMusic = document.getElementById("bgMusic");
-let musicOn = false;
 
+let musicOn = false;
 let rotX = 0;
 let rotY = 0;
 let scale = 1;
+const fov = 500;
+
 let isDrag = false;
 let lastX = 0;
 let lastY = 0;
-const fov = 500;
+
+let touchOne = null;
+let touchTwo = null;
+let prevTouchDist = 0;
+
+// 保持画面不随屏幕比例变形，按真实屏幕尺寸计算
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  initTextParticles();
+  initBgParticles();
+}
+
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => {
+  setTimeout(resize, 100);
+});
 
 resetBtn.addEventListener("click", () => {
   rotX = 0;
@@ -198,12 +282,14 @@ resetBtn.addEventListener("click", () => {
   scale = 1;
 });
 
-canvas.addEventListener('mousedown', e => {
+// 鼠标事件
+canvas.addEventListener("mousedown", e => {
   isDrag = true;
   lastX = e.clientX;
   lastY = e.clientY;
 });
-window.addEventListener('mousemove', e => {
+
+window.addEventListener("mousemove", e => {
   if (!isDrag) return;
   const dx = e.clientX - lastX;
   const dy = e.clientY - lastY;
@@ -212,32 +298,99 @@ window.addEventListener('mousemove', e => {
   lastX = e.clientX;
   lastY = e.clientY;
 });
-window.addEventListener('mouseup', () => isDrag = false);
 
-canvas.addEventListener('wheel', e => {
+window.addEventListener("mouseup", () => {
+  isDrag = false;
+});
+
+canvas.addEventListener("wheel", e => {
   e.preventDefault();
   scale += e.deltaY * -0.0008;
   scale = Math.max(0.4, Math.min(2.2, scale));
 }, { passive: false });
 
+// 触摸事件
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  const touches = e.touches;
+
+  if (touches.length === 1) {
+    isDrag = true;
+    touchOne = touches[0];
+    lastX = touchOne.clientX;
+    lastY = touchOne.clientY;
+  } else if (touches.length === 2) {
+    isDrag = false;
+    touchOne = touches[0];
+    touchTwo = touches[1];
+    prevTouchDist = getTouchDistance(touchOne, touchTwo);
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  const touches = e.touches;
+
+  if (touches.length === 1 && isDrag) {
+    const t = touches[0];
+    const dx = t.clientX - lastX;
+    const dy = t.clientY - lastY;
+    rotY -= dx * 0.005;
+    rotX += dy * 0.005;
+    lastX = t.clientX;
+    lastY = t.clientY;
+  } else if (touches.length === 2) {
+    const t1 = touches[0];
+    const t2 = touches[1];
+    const dist = getTouchDistance(t1, t2);
+    const delta = dist - prevTouchDist;
+    scale += delta * 0.0012;
+    scale = Math.max(0.4, Math.min(2.2, scale));
+    prevTouchDist = dist;
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchend", e => {
+  if (e.touches.length === 0) {
+    isDrag = false;
+    touchOne = null;
+    touchTwo = null;
+  }
+}, { passive: false });
+
+function getTouchDistance(t1, t2) {
+  const dx = t2.clientX - t1.clientX;
+  const dy = t2.clientY - t1.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// 3D投影，按真实屏幕尺寸计算
 function project(x, y, z) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
   let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
   let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
   let x1 = x * Math.cos(rotY) + z1 * Math.sin(rotY);
   let z2 = -x * Math.sin(rotY) + z1 * Math.cos(rotY);
 
   const perspective = fov / (fov + z2);
-  const sx = canvas.width / 2 + x1 * perspective * scale;
-  const sy = canvas.height / 2 + y1 * perspective * scale;
+  const sx = w / 2 + x1 * perspective * scale;
+  const sy = h / 2 + y1 * perspective * scale;
   const s = perspective * scale;
+
   return { x: sx, y: sy, scale: s, z: z2 };
 }
 
 function screenToWorld(screenX, screenY, worldZ = 70) {
-  const ndcX = (screenX - canvas.width / 2) / scale;
-  const ndcY = (screenY - canvas.height / 2) / scale;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  const ndcX = (screenX - w / 2) / scale;
+  const ndcY = (screenY - h / 2) / scale;
   const z2 = worldZ;
   const perspective = fov / (fov + z2);
+
   let x1 = ndcX / perspective;
   let y1 = ndcY / perspective;
   let z1 = z2;
@@ -246,20 +399,21 @@ function screenToWorld(screenX, screenY, worldZ = 70) {
   let z_ = x1 * Math.sin(-rotY) + z1 * Math.cos(-rotY);
   let y = y1 * Math.cos(-rotX) - z_ * Math.sin(-rotX);
   let zOut = y1 * Math.sin(-rotX) + z_ * Math.cos(-rotX);
+
   return { x: x, y: y, z: zOut };
 }
 
-let bgParticles = [];
-
-musicBtn.addEventListener("click", (e) => {
+// 音乐按钮
+musicBtn.addEventListener("click", e => {
   e.stopPropagation();
+
   if (bgMusic.paused) {
     bgMusic.volume = 0.6;
     bgMusic.play().then(() => {
       musicOn = true;
       musicBtn.innerText = "音乐播放中 · 点击暂停";
     }).catch(err => {
-      musicBtn.innerText = "音乐加载失败，请检查文件名";
+      musicBtn.innerText = "音乐加载失败";
       console.error(err);
     });
   } else {
@@ -269,12 +423,27 @@ musicBtn.addEventListener("click", (e) => {
   }
 });
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  initTextParticles();
-  initBgParticles();
+// 点击放烟花
+function fireAtPoint(px, py) {
+  const worldPos = screenToWorld(px, py, 70);
+  for (let i = 0; i < 80; i++) {
+    fireworkParticles.push(new FireworkParticle(worldPos.x, worldPos.y, worldPos.z));
+  }
 }
+
+canvas.addEventListener("click", e => {
+  e.stopPropagation();
+  fireAtPoint(e.clientX, e.clientY);
+});
+
+canvas.addEventListener("touchend", e => {
+  if (isDrag) return;
+  const t = e.changedTouches[0];
+  fireAtPoint(t.clientX, t.clientY);
+}, { passive: true });
+
+// 背景粒子
+let bgParticles = [];
 
 function initBgParticles() {
   bgParticles = [];
@@ -284,8 +453,46 @@ function initBgParticles() {
   }
 }
 
-window.addEventListener("resize", resize);
+class BgParticle {
+  constructor() {
+    this.reset();
+  }
 
+  reset() {
+    this.x = (Math.random() - 0.5) * 900;
+    this.y = (Math.random() - 0.5) * 700;
+    this.z = (Math.random() - 0.5) * 500;
+    this.r = Math.random() * 1.2 + 0.3;
+    this.vx = (Math.random() - 0.5) * 0.22;
+    this.vy = (Math.random() - 0.5) * 0.22;
+    this.vz = (Math.random() - 0.5) * 0.12;
+    this.a = Math.random() * 0.35 + 0.18;
+    this.color = Math.random() > 0.5 ? "180, 210, 255" : "255, 248, 204";
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.z += this.vz;
+
+    if (Math.abs(this.x) > 450 || Math.abs(this.y) > 350 || Math.abs(this.z) > 280) {
+      this.reset();
+    }
+
+    const p = project(this.x, this.y, this.z);
+    if (p.z > -450) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, this.r * p.scale, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${this.color}, ${this.a * Math.min(1, p.scale)})`;
+      ctx.shadowBlur = 6 * p.scale;
+      ctx.shadowColor = `rgba(${this.color}, 0.5)`;
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+}
+
+// 文字粒子
 const texts = ["中秋安康", "花好月圆"];
 let textIndex = 0;
 let textChangeTimer = 0;
@@ -297,15 +504,12 @@ class TextParticle {
     this.x = (Math.random() - 0.5) * 800;
     this.y = (Math.random() - 0.5) * 600;
     this.z = (Math.random() - 0.5) * 400;
-
     this.targetX = targetX;
     this.targetY = targetY;
     this.targetZ = targetZ;
-
     this.size = Math.random() * 3 + 2;
     this.baseAlpha = 0.75 + Math.random() * 0.25;
     this.color = Math.random() > 0.4 ? "#ffe28a" : "#fff6c2";
-
     this.speed = 0.05 + Math.random() * 0.03;
     this.offsetAngle = Math.random() * Math.PI * 2;
     this.offsetSpeed = 0.015 + Math.random() * 0.02;
@@ -350,107 +554,32 @@ class TextParticle {
   }
 }
 
-class BgParticle {
-  constructor() {
-    this.reset();
-  }
-  reset() {
-    this.x = (Math.random() - 0.5) * 900;
-    this.y = (Math.random() - 0.5) * 700;
-    this.z = (Math.random() - 0.5) * 500;
-    this.r = Math.random() * 1.2 + 0.3;
-    this.vx = (Math.random() - 0.5) * 0.22;
-    this.vy = (Math.random() - 0.5) * 0.22;
-    this.vz = (Math.random() - 0.5) * 0.12;
-    this.a = Math.random() * 0.35 + 0.18;
-    this.color = Math.random() > 0.5 ? "180, 210, 255" : "255, 248, 204";
-  }
-
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.z += this.vz;
-
-    if (Math.abs(this.x) > 450 || Math.abs(this.y) > 350 || Math.abs(this.z) > 280) this.reset();
-
-    const p = project(this.x, this.y, this.z);
-    if (p.z > -450) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, this.r * p.scale, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${this.color}, ${this.a * Math.min(1, p.scale)})`;
-      ctx.shadowBlur = 6 * p.scale;
-      ctx.shadowColor = `rgba(${this.color}, 0.5)`;
-      ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-  }
-}
-
-class FireworkParticle {
-  constructor(x, y, z) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random() * 4 + 2;
-    this.vx = Math.cos(angle) * speed;
-    this.vy = Math.sin(angle) * speed;
-    this.vz = (Math.random() - 0.5) * speed * 0.6;
-    this.r = Math.random() * 2 + 1;
-    this.alpha = 1;
-    this.decay = 0.008 + Math.random() * 0.006;
-    this.color = Math.random() > 0.5 ? "255,220,120" : "255,255,255";
-  }
-  update() {
-    this.vy += 0.08;
-    this.x += this.vx;
-    this.y += this.vy;
-    this.z += this.vz;
-    this.alpha -= this.decay;
-  }
-  draw() {
-    const p = project(this.x, this.y, this.z);
-    if (p.z > -450 && this.alpha > 0) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, this.r * p.scale, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${this.color}, ${this.alpha * Math.min(1, p.scale)})`;
-      ctx.shadowBlur = 10 * p.scale;
-      ctx.shadowColor = `rgba(${this.color},0.6)`;
-      ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-  }
-}
-let fireworkParticles = [];
-
-canvas.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const worldPos = screenToWorld(e.clientX, e.clientY, 70);
-  for (let i = 0; i < 80; i++) {
-    fireworkParticles.push(new FireworkParticle(worldPos.x, worldPos.y, worldPos.z));
-  }
-})
-
 function getTextPoints(text) {
   const offscreen = document.createElement("canvas");
   const octx = offscreen.getContext("2d");
   const fontSize = Math.min(110, window.innerWidth / 5);
+
   octx.font = `600 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
   octx.textAlign = "center";
   octx.textBaseline = "middle";
+
   const width = Math.ceil(octx.measureText(text).width) + 120;
   const height = fontSize + 60;
+
   offscreen.width = width;
   offscreen.height = height;
+
   octx.font = `600 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
   octx.textAlign = "center";
   octx.textBaseline = "middle";
   octx.fillStyle = "#ffffff";
   octx.fillText(text, width / 2, height / 2);
+
   const imageData = octx.getImageData(0, 0, width, height);
   const data = imageData.data;
   const points = [];
   const gap = 4;
+
   for (let y = 0; y < height; y += gap) {
     for (let x = 0; x < width; x += gap) {
       const index = (y * width + x) * 4;
@@ -463,6 +592,7 @@ function getTextPoints(text) {
       }
     }
   }
+
   return points;
 }
 
@@ -487,9 +617,53 @@ function changeTextTarget() {
   }
 }
 
+// 烟花粒子
+let fireworkParticles = [];
+
+class FireworkParticle {
+  constructor(x, y, z) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 4 + 2;
+
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.vz = (Math.random() - 0.5) * speed * 0.6;
+    this.r = Math.random() * 2 + 1;
+    this.alpha = 1;
+    this.decay = 0.008 + Math.random() * 0.006;
+    this.color = Math.random() > 0.5 ? "255,220,120" : "255,255,255";
+  }
+
+  update() {
+    this.vy += 0.08;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.z += this.vz;
+    this.alpha -= this.decay;
+  }
+
+  draw() {
+    const p = project(this.x, this.y, this.z);
+    if (p.z > -450 && this.alpha > 0) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, this.r * p.scale, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${this.color}, ${this.alpha * Math.min(1, p.scale)})`;
+      ctx.shadowBlur = 10 * p.scale;
+      ctx.shadowColor = `rgba(${this.color},0.6)`;
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+}
+
+// 主循环
 function animate() {
   ctx.fillStyle = "rgba(5, 5, 15, 0.22)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
   for (const p of bgParticles) p.update();
 
