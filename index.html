@@ -133,7 +133,7 @@
 </style>
 </head>
 <body>
-  <div class="top-tip">🖱️拖拽旋转｜滚轮缩放｜点击月亮召唤嫦娥</div>
+  <div class="top-tip">单指拖拽旋转｜双指捏合缩放｜点击月亮召唤嫦娥</div>
 
   <canvas id="particleCanvas"></canvas>
 
@@ -155,14 +155,15 @@ let rotY = 0;
 let scale = 1;
 const fov = 500;
 
-// ========== 触摸/点击状态变量（修复移动端点击） ==========
+// ========== 触摸状态变量 ==========
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 let isDrag = false;
 let touchStartX = 0;
 let touchStartY = 0;
 let lastX = 0;
 let lastY = 0;
-const TAP_THRESHOLD = 12; // 手指移动小于12像素判定为点击，大于则是拖拽
+let startPinchDist = 0; // 双指初始距离
+const TAP_THRESHOLD = 12; // 点击判定阈值，小于12像素算点击
 let touchMoved = false;
 
 // ========== 月球整体抬高 ==========
@@ -268,7 +269,7 @@ function getMoonSurfaceFromClick(screenX, screenY) {
   return { x: hitX, y: hitY, z: hitZ };
 }
 
-// ========== 【升级精细嫦娥模型】 相对坐标 ==========
+// ========== 嫦娥模型 ==========
 const changEModel = {
   head: { x: 0, y: -8, z: 0 },
   hairBun: { x: 0, y: -12, z: 0 },
@@ -532,13 +533,13 @@ function shadeColor(hex, brightness) {
   return `rgb(${nr}, ${ng}, ${nb})`;
 }
 
-// ========== 放大月球点击判定半径，手机更容易点中 ==========
+// ========== 月球点击判定范围放大 ==========
 function hitMoonScreen(px, py) {
   const cp = project(moonWorld.cx, moonWorld.cy, moonWorld.cz);
   const rScreen = moonWorld.radius * cp.scale;
   const dx = px - cp.x;
   const dy = py - cp.y;
-  return Math.sqrt(dx * dx + dy * dy) < rScreen + 36; // 从24放大到36
+  return Math.sqrt(dx * dx + dy * dy) < rScreen + 36;
 }
 
 // ========== PC点击事件 ==========
@@ -550,20 +551,24 @@ canvas.addEventListener("click", e => {
   }
 });
 
-// ========== 移动端触摸事件（重写Tap逻辑，解决点击失效） ==========
+// ========== 移动端触摸事件【单指旋转 + 双指捏合缩放】 ==========
 canvas.addEventListener("touchstart", e => {
   e.preventDefault();
-  if(e.touches.length === 1) {
+  const touches = e.touches;
+  if(touches.length === 1) {
     isDrag = false;
     touchMoved = false;
-    const t = e.touches[0];
+    const t = touches[0];
     touchStartX = t.clientX;
     touchStartY = t.clientY;
     lastX = t.clientX;
     lastY = t.clientY;
-  } else if(e.touches.length === 2) {
-    isDrag = false;
+  } else if(touches.length === 2) {
+    // 双指按下，记录初始两指距离
     touchMoved = true;
+    const t1 = touches[0];
+    const t2 = touches[1];
+    startPinchDist = getTouchDistance(t1, t2);
   }
 }, { passive: false });
 
@@ -571,6 +576,7 @@ canvas.addEventListener("touchmove", e => {
   e.preventDefault();
   const touches = e.touches;
   if(touches.length === 1) {
+    // 单指：旋转
     const t = touches[0];
     const dx = t.clientX - touchStartX;
     const dy = t.clientY - touchStartY;
@@ -584,20 +590,21 @@ canvas.addEventListener("touchmove", e => {
       touchStartY = t.clientY;
     }
   } else if(touches.length === 2) {
-    const t1 = touches[0]; const t2 = touches[1];
-    const dist = getTouchDistance(t1, t2);
-    const prevDist = getTouchDistance(lastX, lastY);
-    const delta = dist - prevDist;
-    scale += delta * 0.0012;
+    // 双指捏合缩放逻辑
+    touchMoved = true;
+    const t1 = touches[0];
+    const t2 = touches[1];
+    const currentDist = getTouchDistance(t1, t2);
+    const scaleRatio = currentDist / startPinchDist;
+    scale = scale * scaleRatio;
     scale = Math.max(0.4, Math.min(2.2, scale));
-    lastX = t1.clientX;
-    lastY = t1.clientY;
+    startPinchDist = currentDist;
   }
 }, { passive: false });
 
 canvas.addEventListener("touchend", e => {
   if(!touchMoved) {
-    // 判定为点击
+    // 轻点，触发点击
     const tx = touchStartX;
     const ty = touchStartY;
     if (hitMoonScreen(tx, ty)) {
@@ -610,6 +617,7 @@ canvas.addEventListener("touchend", e => {
   touchMoved = false;
 }, { passive: false });
 
+// 获取两点距离工具函数
 function getTouchDistance(p1, p2) {
   const dx = p2.clientX - p1.clientX;
   const dy = p2.clientY - p1.clientY;
